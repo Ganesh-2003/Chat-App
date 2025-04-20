@@ -1,14 +1,20 @@
-import User from "..models/user.model.js"
+import User from "../models/user.model.js"
 import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
+import { generateToken } from "../lib/utils.js";
 
 export const signup = async (req,res) => {                           
     const {email, fullname, password} = req.body;   
 
     try {
+
+        if(!fullname || !email || !password) {
+            return res.status(400).json({msg : "All fields are Required"})
+        }
+
         if(password.length < 6){
             return res.status(400).json({ msg: "Password must be more than 6 charaters" })
         }
+
         const user = await User.findOne({email});
 
         if(user) {
@@ -26,24 +32,79 @@ export const signup = async (req,res) => {
 
         if(newUser) {
             //generate a Jwt Token
-
-            const token = jwt.sign(username,process.env.SECRET_KEY)
-
-            User.create(newUser)
+            generateToken(newUser._id,res);
+            await newUser.save(); //User Create in the Database
+         
+            res.status(201).json({
+                _id: newUser._id,
+                fullName: newUser.fullname,
+                email: newUser.email,
+                profilePic: newUser.profilePic
+            })
         }
         else{
             res.status(400).json({msg: "Invalid User Data"})
         }
 
     } catch (error) {
-        
+        console.log("Error in SignUp Controller", error.message)
+        res.status(500).json({ msg:"Internal Server Error" })
     }
 }
 
-export const login = (req,res) => {
-    res.send("Login Route")
+export const login = async (req,res) => {
+    
+    const {email, password} = req.body;
+
+    try {
+        
+        if( !email || !password) {
+            res.status(400).json({ msg: "All fields Required"})
+        }
+
+        const user = await User.findOne( {email: email} )
+
+        if(!user) {
+            res.status(400).json({ msg: "No User found"})
+        }
+
+        const isPasswordCorrect = await bcrypt.compare(password, user.password)
+
+        if(!isPasswordCorrect) {
+            res.status(400).json({ msg: "Password is Wrong"})
+        } 
+
+        generateToken(user._id,res);
+
+        res.status(200).json({
+            _id: user._id,
+            fullName: user.fullname,
+            email: user.email,
+            profilePic: user.profilePic,
+        })
+
+    } catch (error) {
+
+        console.log("Error in Login Controller", error.message);
+        res.status(500).json({msg: "Internal Server Error"})
+
+    }
 }
 
 export const logout = (req,res) => {
-    res.send("logout route")
+
+    try {
+        res.cookie("jwt","", {maxAge:0})
+        res.status(200).json( {msg: "Loggout out Successfully"})
+    } catch (error) {
+        console.log("Error in Logout Controller", error.message)
+    }
+}
+
+export const updateProfile = (req,res) => {
+    try {
+        
+    } catch (error) {
+        
+    }
 }
